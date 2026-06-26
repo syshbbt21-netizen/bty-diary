@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#0d1520" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="어제보다" />
+  <title>어제보다 나은 하루</title>
+
+  <!-- PWA Manifest inline -->
+  <link rel="manifest" href="manifest.json" />
+
+  <!-- Apple touch icon (base64 SVG) -->
+  <link rel="apple-touch-icon" href="icon.png" />
+
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    html, body { height: 100%; background: #0d1520; }
+    body { font-family: 'Apple SD Gothic Neo', 'Pretendard', 'Noto Sans KR', sans-serif; color: #e2e8f0; }
+    input[type=number]::-webkit-inner-spin-button,
+    input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+    input[type=number] { -moz-appearance: textfield; }
+    #root { max-width: 480px; margin: 0 auto; min-height: 100vh; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <script type="text/babel">
+    const { useState, useEffect } = React;
+
+    const CATEGORIES = [
+      { id: "health", label: "몸",  icon: "💪", desc: "운동, 수면, 식단" },
+      { id: "mind",   label: "머리", icon: "🧠", desc: "공부, 독서, 집중" },
+      { id: "work",   label: "일",   icon: "⚡", desc: "생산성, 목표 달성" },
+      { id: "relation", label: "관계", icon: "🤝", desc: "대화, 연락, 배려" },
+      { id: "mood",   label: "마음", icon: "🌿", desc: "감정, 여유, 충전" },
+    ];
+
+    const SCORE_LABELS = ["최악", "별로", "보통", "좋음", "최고"];
+    const SCORE_COLORS = ["#ef4444", "#f97316", "#eab308", "#84cc16", "#22c55e"];
+    const STORAGE_KEY = "bty-v1";
+
+    function getTodayKey() { return new Date().toISOString().split("T")[0]; }
+    function getYesterdayKey() {
+      const d = new Date(); d.setDate(d.getDate() - 1);
+      return d.toISOString().split("T")[0];
+    }
+    function formatDate(k) {
+      const [,m,d] = k.split("-"); return `${m}월 ${d}일`;
+    }
+    function totalScore(scores) {
+      const v = Object.values(scores);
+      return v.length ? v.reduce((a,b)=>a+b,0) : 0;
+    }
+    function avgScore(scores) {
+      const v = Object.values(scores);
+      return v.length ? (v.reduce((a,b)=>a+b,0)/v.length).toFixed(1) : "0.0";
+    }
+
+    function ScoreButton({ value, selected, onChange }) {
+      return (
+        <button onClick={() => onChange(value)} style={{
+          width:44, height:44, borderRadius:12, cursor:"pointer",
+          border: selected ? `2px solid ${SCORE_COLORS[value-1]}` : "2px solid transparent",
+          background: selected ? SCORE_COLORS[value-1]+"33" : "#162030",
+          color: selected ? SCORE_COLORS[value-1] : "#64748b",
+          fontWeight:700, fontSize:16, transition:"all 0.15s",
+          display:"flex", alignItems:"center", justifyContent:"center",
+        }}>{value}</button>
+      );
+    }
+
+    function GrowthBadge({ delta }) {
+      if (delta === null || delta === undefined) return null;
+      const pos = delta > 0, neu = delta === 0;
+      return (
+        <span style={{
+          display:"inline-flex", alignItems:"center", gap:4,
+          padding:"2px 10px", borderRadius:99, fontSize:13, fontWeight:700,
+          background: neu ? "#1e2a3a" : pos ? "#22c55e22" : "#ef444422",
+          color: neu ? "#64748b" : pos ? "#22c55e" : "#ef4444",
+        }}>
+          {neu ? "—" : pos ? `+${delta}` : delta}
+          {!neu && (pos ? " ↑" : " ↓")}
+        </span>
+      );
+    }
+
+    function App() {
+      const [view, setView] = useState("today");
+      const [allData, setAllData] = useState({});
+      const [todayScores, setTodayScores] = useState({});
+      const [todayNote, setTodayNote] = useState("");
+      const [weightMorning, setWeightMorning] = useState("");
+      const [weightEvening, setWeightEvening] = useState("");
+      const [saved, setSaved] = useState(false);
+      const [loading, setLoading] = useState(true);
+
+      const todayKey = getTodayKey();
+      const yesterdayKey = getYesterdayKey();
+
+      useEffect(() => {
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          if (raw) {
+            const data = JSON.parse(raw);
+            setAllData(data);
+            if (data[todayKey]) {
+              setTodayScores(data[todayKey].scores || {});
+              setTodayNote(data[todayKey].note || "");
+              setWeightMorning(data[todayKey].weightMorning || "");
+              setWeightEvening(data[todayKey].weightEvening || "");
+              setSaved(true);
+            }
+          }
+        } catch(e) {}
+        setLoading(false);
+      }, []);
+
+      function handleSave() {
+        const updated = {
+          ...allData,
+          [todayKey]: {
+            scores: todayScores, note: todayNote,
+            weightMorning, weightEvening,
+            savedAt: new Date().toISOString()
+          }
+        };
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+        setAllData(updated);
+        setSaved(true);
+      }
+
+      const yesterdayData = allData[yesterdayKey];
+      const todayTotal = totalScore(todayScores);
+      const yesterdayTotal = yesterdayData ? totalScore(yesterdayData.scores) : null;
+      const delta = yesterdayTotal !== null ? todayTotal - yesterdayTotal : null;
+      const allFilled = Object.keys(todayScores).length >= CATEGORIES.length;
+
+      const historyEntries = Object.entries(allData)
+        .filter(([k]) => k !== todayKey)
+        .sort((a,b) => a[0]<b[0] ? 1 : -1)
+        .slice(0, 30);
+
+      if (loading) return (
+        <div style={{minHeight:"100vh",background:"#0d1520",display:"flex",alignItems:"center",justifyContent:"center"}}>
+          <span style={{color:"#64748b"}}>불러오는 중...</span>
+        </div>
+      );
+
+      return (
+        <div style={{minHeight:"100vh",background:"#0d1520",color:"#e2e8f0",paddingBottom:80}}>
+
+          {/* ── HEADER ── */}
+          <div style={{padding:"env(safe-area-inset-top, 32px) 24px 0", paddingTop:"max(env(safe-area-inset-top), 32px)"}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+              <div>
+                <div style={{fontSize:12,color:"#475569",letterSpacing:"0.12em",textTransform:"uppercase",marginBottom:4}}>
+                  {formatDate(todayKey)}
+                </div>
+                <div style={{fontSize:26,fontWeight:800,letterSpacing:"-0.02em",lineHeight:1.1}}>
+                  어제보다<br/>나은 하루?
+                </div>
+              </div>
+              {saved && (
+                <div style={{textAlign:"right"}}>
+                  <div style={{
+                    fontSize:56,fontWeight:900,lineHeight:1,letterSpacing:"-0.04em",
+                    color: delta > 0 ? "#f59e0b" : delta === 0 ? "#64748b" : "#ef4444"
+                  }}>{avgScore(todayScores)}</div>
+                  <div style={{marginTop:4,display:"flex",justifyContent:"flex-end"}}>
+                    <GrowthBadge delta={delta} />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {yesterdayData && saved && (
+              <div style={{marginTop:16,padding:"12px 16px",background:"#1e2a3a",borderRadius:14,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                <span style={{fontSize:13,color:"#64748b"}}>어제 ({formatDate(yesterdayKey)})</span>
+                <span style={{fontSize:13,color:"#94a3b8",fontWeight:600}}>평균 {avgScore(yesterdayData.scores)}</span>
+              </div>
+            )}
+          </div>
+
+          {/* ── TABS ── */}
+          <div style={{display:"flex",gap:4,margin:"20px 24px 0",background:"#1e2a3a",borderRadius:14,padding:4}}>
+            {[["today","오늘 기록"],["history","지난 기록"]].map(([k,label]) => (
+              <button key={k} onClick={()=>setView(k)} style={{
+                flex:1,padding:"10px 0",borderRadius:10,border:"none",cursor:"pointer",
+                background: view===k ? "#f59e0b" : "transparent",
+                color: view===k ? "#0d1520" : "#64748b",
+                fontWeight:700,fontSize:14,transition:"all 0.15s",
+              }}>{label}</button>
+            ))}
+          </div>
+
+          {/* ── TODAY ── */}
+          {view === "today" && (
+            <div style={{padding:"20px 24px 0"}}>
+
+              {/* Categories */}
+              <div style={{display:"flex",flexDirection:"column",gap:12}}>
+                {CATEGORIES.map(cat => {
+                  const score = todayScores[cat.id];
+                  const yScore = yesterdayData?.scores?.[cat.id];
+                  const catDelta = (score && yScore) ? score - yScore : null;
+                  return (
+                    <div key={cat.id} style={{background:"#1e2a3a",borderRadius:16,padding:"16px"}}>
+                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+                        <div style={{display:"flex",alignItems:"center",gap:10}}>
+                          <span style={{fontSize:22}}>{cat.icon}</span>
+                          <div>
+                            <div style={{fontWeight:700,fontSize:15}}>{cat.label}</div>
+                            <div style={{fontSize:12,color:"#475569"}}>{cat.desc}</div>
+                          </div>
+                        </div>
+                        <div style={{display:"flex",alignItems:"center",gap:8}}>
+                          {score && <span style={{fontSize:13,color:SCORE_COLORS[score-1],fontWeight:600}}>{SCORE_LABELS[score-1]}</span>}
+                          <GrowthBadge delta={catDelta} />
+                        </div>
+                      </div>
+                      <div style={{display:"flex",gap:8}}>
+                        {[1,2,3,4,5].map(v => (
+                          <ScoreButton key={v} value={v} selected={score===v}
+                            onChange={val => setTodayScores(p=>({...p,[cat.id]:val}))} />
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Weight */}
+              <div style={{marginTop:12,background:"#1e2a3a",borderRadius:16,padding:"16px"}}>
+                <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:14}}>
+                  <span style={{fontSize:20}}>⚖️</span>
+                  <div>
+                    <div style={{fontWeight:700,fontSize:15}}>몸무게</div>
+                    <div style={{fontSize:12,color:"#475569"}}>아침 기상 직후 / 저녁 자기 전</div>
+                  </div>
+                  {weightMorning && weightEvening && (() => {
+                    const diff = parseFloat(weightEvening) - parseFloat(weightMorning);
+                    return (
+                      <span style={{
+                        marginLeft:"auto",fontSize:12,fontWeight:700,
+                        padding:"2px 10px",borderRadius:99,
+                        background: diff > 0 ? "#f59e0b22" : "#22c55e22",
+                        color: diff > 0 ? "#f59e0b" : "#22c55e",
+                      }}>
+                        {diff > 0 ? `+${diff.toFixed(1)}kg` : `${diff.toFixed(1)}kg`}
+                      </span>
+                    );
+                  })()}
+                </div>
+                <div style={{display:"flex",gap:10}}>
+                  {[
+                    {label:"🌅 아침", val:weightMorning, set:setWeightMorning},
+                    {label:"🌙 저녁", val:weightEvening, set:setWeightEvening},
+                  ].map(({label,val,set}) => (
+                    <div key={label} style={{flex:1}}>
+                      <div style={{fontSize:12,color:"#64748b",marginBottom:6}}>{label}</div>
+                      <div style={{position:"relative"}}>
+                        <input type="number" inputMode="decimal" value={val}
+                          onChange={e=>set(e.target.value)} placeholder="0.0"
+                          style={{
+                            width:"100%",background:"#0d1520",border:"1px solid #2d3f52",
+                            borderRadius:12,padding:"12px 36px 12px 14px",
+                            color:"#e2e8f0",fontSize:18,fontWeight:700,
+                            outline:"none",fontFamily:"inherit",
+                          }} />
+                        <span style={{position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",fontSize:12,color:"#475569"}}>kg</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Note */}
+              <textarea value={todayNote} onChange={e=>setTodayNote(e.target.value)}
+                placeholder="오늘 하루 한 줄 메모 (선택)"
+                style={{
+                  marginTop:12,width:"100%",background:"#1e2a3a",border:"none",
+                  borderRadius:16,padding:"16px",color:"#e2e8f0",fontSize:14,
+                  resize:"none",height:76,outline:"none",fontFamily:"inherit",
+                }} />
+
+              {/* Save */}
+              <button onClick={handleSave} disabled={!allFilled} style={{
+                width:"100%",marginTop:10,padding:"16px",borderRadius:16,border:"none",
+                background: allFilled ? "#f59e0b" : "#1e2a3a",
+                color: allFilled ? "#0d1520" : "#475569",
+                fontSize:16,fontWeight:800,
+                cursor: allFilled ? "pointer" : "not-allowed",
+                transition:"all 0.15s",
+              }}>
+                {!allFilled
+                  ? `${CATEGORIES.length - Object.keys(todayScores).length}개 항목 남음`
+                  : saved ? "✓ 오늘 기록 저장됨" : "오늘 기록 저장"}
+              </button>
+
+              {/* Result */}
+              {saved && delta !== null && (
+                <div style={{
+                  marginTop:12,padding:"16px",borderRadius:16,textAlign:"center",
+                  background: delta>0 ? "#22c55e11" : delta===0 ? "#1e2a3a" : "#ef444411",
+                  border: `1px solid ${delta>0?"#22c55e33":delta===0?"#1e2a3a":"#ef444433"}`,
+                }}>
+                  <div style={{fontSize:28,marginBottom:4}}>{delta>0?"🔥":delta===0?"➡️":"💪"}</div>
+                  <div style={{fontWeight:700,fontSize:15,color:delta>0?"#22c55e":delta===0?"#64748b":"#ef4444"}}>
+                    {delta>0?`어제보다 ${delta}점 성장!`:delta===0?"어제와 동일한 하루":`어제보다 ${Math.abs(delta)}점 아쉬움`}
+                  </div>
+                  {delta<=0 && <div style={{fontSize:12,color:"#475569",marginTop:4}}>내일은 더 나은 하루가 될 거야</div>}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── HISTORY ── */}
+          {view === "history" && (
+            <div style={{padding:"20px 24px 0"}}>
+              {historyEntries.length === 0 ? (
+                <div style={{textAlign:"center",color:"#475569",padding:"60px 0"}}>
+                  <div style={{fontSize:40,marginBottom:12}}>📖</div>
+                  <div style={{fontSize:15}}>아직 기록이 없어요</div>
+                  <div style={{fontSize:13,marginTop:4}}>오늘 첫 기록을 남겨봐요</div>
+                </div>
+              ) : (
+                <div style={{display:"flex",flexDirection:"column",gap:10}}>
+                  {historyEntries.map(([dateKey, entry], i) => {
+                    const prev = historyEntries[i+1];
+                    const d = prev ? totalScore(entry.scores) - totalScore(prev[1].scores) : null;
+                    return (
+                      <div key={dateKey} style={{background:"#1e2a3a",borderRadius:16,padding:"16px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                        <div style={{flex:1,minWidth:0}}>
+                          <div style={{fontWeight:700,fontSize:15}}>{formatDate(dateKey)}</div>
+                          {entry.note && <div style={{fontSize:12,color:"#475569",marginTop:2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{entry.note}</div>}
+                          {(entry.weightMorning || entry.weightEvening) && (
+                            <div style={{fontSize:12,color:"#94a3b8",marginTop:4,display:"flex",gap:8}}>
+                              {entry.weightMorning && <span>🌅 {entry.weightMorning}kg</span>}
+                              {entry.weightEvening && <span>🌙 {entry.weightEvening}kg</span>}
+                            </div>
+                          )}
+                          <div style={{display:"flex",gap:5,marginTop:8,flexWrap:"wrap"}}>
+                            {CATEGORIES.map(cat => {
+                              const s = entry.scores[cat.id];
+                              return s ? (
+                                <span key={cat.id} style={{fontSize:11,padding:"2px 7px",borderRadius:99,background:SCORE_COLORS[s-1]+"22",color:SCORE_COLORS[s-1],fontWeight:600}}>
+                                  {cat.icon} {s}
+                                </span>
+                              ) : null;
+                            })}
+                          </div>
+                        </div>
+                        <div style={{textAlign:"right",marginLeft:12,flexShrink:0}}>
+                          <div style={{fontSize:32,fontWeight:900,letterSpacing:"-0.04em",color:"#f59e0b"}}>{avgScore(entry.scores)}</div>
+                          <GrowthBadge delta={d} />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+  </script>
+
+  <!-- Service Worker registration -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('sw.js').catch(() => {});
+    }
+  </script>
+</body>
+</html>
