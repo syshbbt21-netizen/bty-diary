@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#0d1520" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="어제보다" />
+  <title>어제보다 나은 하루</title>
+  <link rel="manifest" href="manifest.json" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    html { height: 100%; }
+    body { min-height: 100%; background: #0d1520; color: #e2e8f0; font-family: 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif; }
+    input[type=number]::-webkit-inner-spin-button,
+    input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; }
+    input[type=number] { -moz-appearance: textfield; }
+    #app { max-width: 480px; margin: 0 auto; min-height: 100vh; padding-bottom: 60px; }
+
+    .header { padding: 36px 24px 0; }
+    .header-row { display: flex; justify-content: space-between; align-items: flex-start; }
+    .header-date { font-size: 12px; color: #475569; letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 4px; }
+    .header-title { font-size: 26px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.15; }
+    .score-hero { font-size: 58px; font-weight: 900; line-height: 1; letter-spacing: -0.04em; text-align: right; }
+    .yesterday-bar { margin-top: 16px; padding: 12px 16px; background: #1e2a3a; border-radius: 14px; display: flex; justify-content: space-between; align-items: center; }
+
+    /* Date nav */
+    .date-nav { display: flex; align-items: center; justify-content: space-between; margin: 16px 24px 0; background: #1e2a3a; border-radius: 14px; padding: 4px 8px; }
+    .date-nav-btn { background: none; border: none; color: #94a3b8; font-size: 22px; cursor: pointer; padding: 4px 10px; border-radius: 8px; line-height: 1; }
+    .date-nav-btn:disabled { color: #2d3f52; cursor: not-allowed; }
+    .date-nav-label { font-size: 14px; font-weight: 700; color: #e2e8f0; }
+    .date-nav-today { font-size: 11px; color: #f59e0b; font-weight: 700; margin-left: 6px; }
+
+    .tabs { display: flex; gap: 4px; margin: 12px 24px 0; background: #1e2a3a; border-radius: 14px; padding: 4px; }
+    .tab { flex: 1; padding: 10px 0; border-radius: 10px; border: none; cursor: pointer; font-weight: 700; font-size: 14px; transition: all 0.15s; font-family: inherit; }
+    .tab.active { background: #f59e0b; color: #0d1520; }
+    .tab.inactive { background: transparent; color: #64748b; }
+
+    .content { padding: 20px 24px 0; }
+
+    .cat-card { background: #1e2a3a; border-radius: 16px; padding: 16px; margin-bottom: 12px; }
+    .cat-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+    .cat-left { display: flex; align-items: center; gap: 10px; }
+    .cat-icon { font-size: 22px; }
+    .cat-name { font-weight: 700; font-size: 15px; }
+    .cat-desc { font-size: 12px; color: #475569; }
+    .cat-right { display: flex; align-items: center; gap: 8px; }
+    .score-btns { display: flex; gap: 8px; }
+    .score-btn { width: 44px; height: 44px; border-radius: 12px; border: 2px solid transparent; cursor: pointer; font-weight: 700; font-size: 16px; transition: all 0.15s; font-family: inherit; display: flex; align-items: center; justify-content: center; }
+
+    .badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 10px; border-radius: 99px; font-size: 13px; font-weight: 700; }
+
+    .weight-card { background: #1e2a3a; border-radius: 16px; padding: 16px; margin-bottom: 12px; }
+    .weight-header { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; }
+    .weight-inputs { display: flex; gap: 10px; }
+    .weight-input-wrap { flex: 1; }
+    .weight-label { font-size: 12px; color: #64748b; margin-bottom: 6px; }
+    .weight-input-inner { position: relative; }
+    .weight-input { width: 100%; background: #0d1520; border: 1px solid #2d3f52; border-radius: 12px; padding: 12px 36px 12px 14px; color: #e2e8f0; font-size: 18px; font-weight: 700; outline: none; font-family: inherit; }
+    .weight-unit { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); font-size: 12px; color: #475569; pointer-events: none; }
+
+    .note-area { width: 100%; background: #1e2a3a; border: none; border-radius: 16px; padding: 16px; color: #e2e8f0; font-size: 14px; resize: none; height: 76px; outline: none; font-family: inherit; margin-bottom: 10px; display: block; }
+
+    .save-btn { width: 100%; padding: 16px; border-radius: 16px; border: none; font-size: 16px; font-weight: 800; transition: all 0.15s; cursor: pointer; font-family: inherit; margin-bottom: 10px; }
+    .save-btn.ready { background: #f59e0b; color: #0d1520; }
+    .save-btn.disabled { background: #1e2a3a; color: #475569; cursor: not-allowed; }
+
+    .result-box { padding: 16px; border-radius: 16px; text-align: center; margin-bottom: 12px; }
+    .result-emoji { font-size: 28px; margin-bottom: 4px; }
+    .result-text { font-weight: 700; font-size: 15px; }
+    .result-sub { font-size: 12px; color: #475569; margin-top: 4px; }
+
+    .hist-card { background: #1e2a3a; border-radius: 16px; padding: 16px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+    .hist-left { flex: 1; min-width: 0; }
+    .hist-date { font-weight: 700; font-size: 15px; }
+    .hist-note { font-size: 12px; color: #475569; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .hist-weight { font-size: 12px; color: #94a3b8; margin-top: 4px; display: flex; gap: 8px; }
+    .hist-cats { display: flex; gap: 5px; margin-top: 8px; flex-wrap: wrap; }
+    .hist-cat-badge { font-size: 11px; padding: 2px 7px; border-radius: 99px; font-weight: 600; }
+    .hist-right { text-align: right; margin-left: 12px; flex-shrink: 0; }
+    .hist-avg { font-size: 32px; font-weight: 900; letter-spacing: -0.04em; color: #f59e0b; }
+
+    .empty { text-align: center; color: #475569; padding: 60px 0; }
+    .empty-icon { font-size: 40px; margin-bottom: 12px; }
+    .backup-bar { display: flex; gap: 8px; margin: 12px 24px 0; }
+    .backup-btn { flex: 1; padding: 12px 0; border-radius: 14px; border: none; cursor: pointer; font-weight: 700; font-size: 13px; font-family: inherit; transition: all 0.15s; background: #1e2a3a; color: #94a3b8; }
+    .backup-btn:active { filter: brightness(1.3); }
+  </style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+const CATS = [
+  { id:"health", label:"몸",   icon:"💪", desc:"운동, 수면, 식단" },
+  { id:"mind",   label:"머리", icon:"🧠", desc:"공부, 독서, 집중" },
+  { id:"work",   label:"일",   icon:"⚡", desc:"생산성, 목표 달성" },
+  { id:"relation",label:"관계",icon:"🤝", desc:"대화, 연락, 배려" },
+  { id:"mood",   label:"마음", icon:"🌿", desc:"감정, 여유, 충전" },
+];
+const LABELS = ["최악","별로","보통","좋음","최고"];
+const COLORS = ["#ef4444","#f97316","#eab308","#84cc16","#22c55e"];
+const KEY = "bty-v1";
+const SUPABASE_URL = "https://rrwbmixzjjcspaanbsat.supabase.co";
+const SUPABASE_KEY = "sb_publishable_-LyyTkAvzZWl0kREfmAmbw_IaJ678s9";
+
+async function dbSave(date, entry) {
+  try {
+    const payload = {
+      date,
+      health: entry.scores?.health || null,
+      mind:   entry.scores?.mind   || null,
+      work:   entry.scores?.work   || null,
+      relation: entry.scores?.relation || null,
+      mood:   entry.scores?.mood   || null,
+      weight_morning: entry.weightMorning || null,
+      weight_evening: entry.weightEvening || null,
+      note: entry.note || null,
+      saved_at: new Date().toISOString()
+    };
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/diary`, {
+      method: "POST",
+      headers: {
+        "apikey": SUPABASE_KEY,
+        "Authorization": `Bearer ${SUPABASE_KEY}`,
+        "Content-Type": "application/json",
+        "Prefer": "resolution=merge-duplicates"
+      },
+      body: JSON.stringify(payload)
+    });
+    if (!res.ok) console.warn("DB 저장 실패", await res.text());
+  } catch(e) { console.warn("DB 오류:", e); }
+}
+
+async function dbLoad() {
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/diary?select=*&order=date.desc&limit=60`, {
+      headers: {
+        "apikey": SUPABASE_KEY,
+        "Authorization": `Bearer ${SUPABASE_KEY}`
+      }
+    });
+    if (!res.ok) return null;
+    const rows = await res.json();
+    const data = {};
+    rows.forEach(r => {
+      data[r.date] = {
+        scores: {
+          health: r.health, mind: r.mind, work: r.work,
+          relation: r.relation, mood: r.mood
+        },
+        weightMorning: r.weight_morning || "",
+        weightEvening: r.weight_evening || "",
+        note: r.note || "",
+        savedAt: r.saved_at
+      };
+      // null 점수 제거
+      Object.keys(data[r.date].scores).forEach(k => {
+        if (data[r.date].scores[k] === null) delete data[r.date].scores[k];
+      });
+    });
+    return data;
+  } catch(e) { console.warn("DB 로드 오류:", e); return null; }
+}
+
+
+
+function dateKey(offset) {
+  const d = new Date();
+  d.setDate(d.getDate() + offset);
+  return d.toISOString().split("T")[0];
+}
+function fmtDate(k) {
+  const [y,m,d] = k.split("-");
+  const date = new Date(parseInt(y), parseInt(m)-1, parseInt(d));
+  const days = ["일","월","화","수","목","금","토"];
+  return `${m}월 ${d}일 (${days[date.getDay()]})`;
+}
+function total(s) { const v=Object.values(s); return v.length?v.reduce((a,b)=>a+b,0):0; }
+function avg(s) { const v=Object.values(s); return v.length?(v.reduce((a,b)=>a+b,0)/v.length).toFixed(1):"0.0"; }
+function loadData() { try { return JSON.parse(localStorage.getItem(KEY)||"{}"); } catch(e){ return {}; } }
+function saveData(d) { localStorage.setItem(KEY, JSON.stringify(d)); }
+
+// State
+let state = {
+  view: "today",
+  dayOffset: 0,
+  allData: loadData(),
+  scores: {},
+  note: "",
+  wMorning: "",
+  wEvening: "",
+  saved: false,
+  syncing: false,
+};
+
+function loadDayState() {
+  const k = dateKey(state.dayOffset);
+  const entry = state.allData[k];
+  if (entry) {
+    state.scores   = entry.scores || {};
+    state.note     = entry.note || "";
+    state.wMorning = entry.weightMorning || "";
+    state.wEvening = entry.weightEvening || "";
+    state.saved    = true;
+  } else {
+    state.scores   = {};
+    state.note     = "";
+    state.wMorning = "";
+    state.wEvening = "";
+    state.saved    = false;
+  }
+}
+
+loadDayState();
+
+// Supabase에서 데이터 불러와서 localStorage와 병합
+async function initFromDB() {
+  state.syncing = true;
+  render();
+  const dbData = await dbLoad();
+  if (dbData) {
+    const merged = {...loadData(), ...dbData};
+    saveData(merged);
+    state.allData = merged;
+    loadDayState();
+  }
+  state.syncing = false;
+  render();
+}
+
+initFromDB();
+
+function el(tag, attrs, ...children) {
+  const e = document.createElement(tag);
+  if (attrs) Object.entries(attrs).forEach(([k,v]) => {
+    if (k === "class") e.className = v;
+    else if (k === "style" && typeof v === "object") Object.assign(e.style, v);
+    else e.setAttribute(k, v);
+  });
+  children.flat().forEach(c => {
+    if (c == null || c === false) return;
+    e.appendChild(typeof c === "string" ? document.createTextNode(c) : c);
+  });
+  return e;
+}
+
+function badge(delta) {
+  if (delta === null || delta === undefined) return null;
+  const pos = delta > 0, neu = delta === 0;
+  const b = el("span", {class:"badge"});
+  b.style.background = neu ? "#1e2a3a" : pos ? "#22c55e22" : "#ef444422";
+  b.style.color = neu ? "#64748b" : pos ? "#22c55e" : "#ef4444";
+  b.textContent = neu ? "—" : (pos ? `+${delta} ↑` : `${delta} ↓`);
+  return b;
+}
+
+function render() {
+  const app = document.getElementById("app");
+  app.innerHTML = "";
+
+  const curKey  = dateKey(state.dayOffset);
+  const prevKey = dateKey(state.dayOffset - 1);
+  const isToday = state.dayOffset === 0;
+
+  const prevData = state.allData[prevKey];
+  const todayTotal = total(state.scores);
+  const prevTotal  = prevData ? total(prevData.scores) : null;
+  const delta = prevTotal !== null ? todayTotal - prevTotal : null;
+  const allFilled = Object.keys(state.scores).length >= CATS.length;
+
+  // ── HEADER ──
+  const heroColor = delta === null ? "#f59e0b" : delta > 0 ? "#f59e0b" : delta === 0 ? "#64748b" : "#ef4444";
+  const syncIndicator = state.syncing
+    ? el("div", {style:{fontSize:"11px",color:"#f59e0b",textAlign:"right",marginBottom:"4px"}}, "⟳ 동기화 중...")
+    : el("div", {style:{fontSize:"11px",color:"#22c55e",textAlign:"right",marginBottom:"4px"}}, "✓ 동기화됨");
+
+  const header = el("div", {class:"header"},
+    syncIndicator,
+    el("div", {class:"header-row"},
+      el("div", {},
+        el("div", {class:"header-date"}, fmtDate(curKey)),
+        el("div", {class:"header-title"}, "어제보다", el("br",{}), "나은 하루?")
+      ),
+      state.saved ? el("div", {},
+        el("div", {class:"score-hero", style:{color:heroColor}}, avg(state.scores)),
+        el("div", {style:{marginTop:"4px",display:"flex",justifyContent:"flex-end"}}, badge(delta))
+      ) : el("span",{})
+    ),
+    (prevData && state.saved) ? el("div", {class:"yesterday-bar"},
+      el("span", {style:{fontSize:"13px",color:"#64748b"}}, `전날 (${fmtDate(prevKey)})`),
+      el("span", {style:{fontSize:"13px",color:"#94a3b8",fontWeight:"600"}}, `평균 ${avg(prevData.scores)}`)
+    ) : el("span",{})
+  );
+
+  // ── DATE NAV ──
+  const prevBtn = el("button", {class:"date-nav-btn"});
+  prevBtn.textContent = "‹";
+  prevBtn.addEventListener("click", () => {
+    state.dayOffset--;
+    loadDayState();
+    render();
+  });
+
+  const nextBtn = el("button", {class:"date-nav-btn"});
+  nextBtn.textContent = "›";
+  if (state.dayOffset >= 0) nextBtn.setAttribute("disabled","");
+  nextBtn.addEventListener("click", () => {
+    if (state.dayOffset < 0) {
+      state.dayOffset++;
+      loadDayState();
+      render();
+    }
+  });
+
+  const labelWrap = el("div", {style:{display:"flex",alignItems:"center"}});
+  labelWrap.appendChild(el("span", {class:"date-nav-label"}, fmtDate(curKey)));
+  if (isToday) labelWrap.appendChild(el("span", {class:"date-nav-today"}, "오늘"));
+
+  const dateNav = el("div", {class:"date-nav"}, prevBtn, labelWrap, nextBtn);
+
+  // ── TABS ──
+  const tabs = el("div", {class:"tabs"},
+    ...[["today","오늘 기록"],["history","지난 기록"]].map(([v,label]) => {
+      const t = el("button", {class:"tab "+(state.view===v?"active":"inactive")}, label);
+      t.addEventListener("click", () => { state.view=v; render(); });
+      return t;
+    })
+  );
+
+  app.appendChild(header);
+  app.appendChild(dateNav);
+  app.appendChild(tabs);
+
+  // ── BACKUP BAR ──
+  const exportBtn = el("button", {class:"backup-btn export"}, "📤 내보내기 (백업)");
+  exportBtn.addEventListener("click", () => {
+    const json = JSON.stringify(state.allData, null, 2);
+    const blob = new Blob([json], {type:"application/json"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "bty-backup-" + new Date().toISOString().split("T")[0] + ".json";
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+
+  const importInput = el("input", {type:"file", accept:".json"});
+  importInput.style.display = "none";
+  importInput.addEventListener("change", e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      try {
+        const parsed = JSON.parse(ev.target.result);
+        if (typeof parsed !== "object") throw new Error();
+        saveData(parsed);
+        state.allData = parsed;
+        loadDayState();
+        alert("✅ 복원 완료! 기록이 불러와졌어요.");
+        render();
+      } catch { alert("❌ 파일이 올바르지 않아요."); }
+    };
+    reader.readAsText(file);
+  });
+
+  const importBtn = el("button", {class:"backup-btn import"}, "📥 가져오기 (복원)");
+  importBtn.addEventListener("click", () => { importInput.value=""; importInput.click(); });
+
+  const backupBar = el("div", {class:"backup-bar"}, exportBtn, importBtn, importInput);
+  app.appendChild(backupBar);
+
+  const content = el("div", {class:"content"});
+
+  if (state.view === "today") {
+
+    // Categories
+    CATS.forEach(cat => {
+      const sc = state.scores[cat.id];
+      const psc = prevData?.scores?.[cat.id];
+      const catDelta = (sc && psc) ? sc - psc : null;
+
+      const btns = el("div", {class:"score-btns"},
+        ...[1,2,3,4,5].map(v => {
+          const btn = el("button", {class:"score-btn"}, String(v));
+          const sel = sc === v;
+          btn.style.background  = sel ? COLORS[v-1]+"33" : "#162030";
+          btn.style.color       = sel ? COLORS[v-1] : "#64748b";
+          btn.style.borderColor = sel ? COLORS[v-1] : "transparent";
+          btn.addEventListener("click", () => {
+            state.scores = {...state.scores, [cat.id]: v};
+            render();
+          });
+          return btn;
+        })
+      );
+
+      const catRight = el("div", {class:"cat-right"});
+      if (sc) catRight.appendChild(el("span",{style:{fontSize:"13px",color:COLORS[sc-1],fontWeight:"600"}},LABELS[sc-1]));
+      const bd = badge(catDelta);
+      if (bd) catRight.appendChild(bd);
+
+      content.appendChild(el("div", {class:"cat-card"},
+        el("div", {class:"cat-header"},
+          el("div", {class:"cat-left"},
+            el("span", {class:"cat-icon"}, cat.icon),
+            el("div", {},
+              el("div", {class:"cat-name"}, cat.label),
+              el("div", {class:"cat-desc"}, cat.desc)
+            )
+          ),
+          catRight
+        ),
+        btns
+      ));
+    });
+
+    // ── WEIGHT (렌더 없이 blur에서만 diff 업데이트) ──
+    const weightCard = el("div", {class:"weight-card"});
+
+    const wHeaderEl = el("div", {class:"weight-header"},
+      el("span", {style:{fontSize:"20px"}}, "⚖️"),
+      el("div", {},
+        el("div", {style:{fontWeight:"700",fontSize:"15px"}}, "몸무게"),
+        el("div", {style:{fontSize:"12px",color:"#475569"}}, "아침 기상 직후 / 저녁 자기 전")
+      )
+    );
+
+    // diff badge placeholder
+    const diffBadgeEl = el("span", {class:"badge", style:{marginLeft:"auto",display:"none"}});
+    wHeaderEl.appendChild(diffBadgeEl);
+
+    function updateDiffBadge() {
+      const wm = parseFloat(inpMorning.value);
+      const we = parseFloat(inpEvening.value);
+      if (!isNaN(wm) && !isNaN(we) && inpMorning.value && inpEvening.value) {
+        const diff = we - wm;
+        diffBadgeEl.style.display = "inline-flex";
+        diffBadgeEl.style.background = diff > 0 ? "#f59e0b22" : "#22c55e22";
+        diffBadgeEl.style.color = diff > 0 ? "#f59e0b" : "#22c55e";
+        diffBadgeEl.textContent = diff > 0 ? `+${diff.toFixed(2)}kg` : `${diff.toFixed(2)}kg`;
+      } else {
+        diffBadgeEl.style.display = "none";
+      }
+    }
+
+    const mkWInput = (label, initVal, onBlurCb) => {
+      const inp = el("input", {type:"text", inputmode:"decimal", placeholder:"00.00", class:"weight-input"});
+      inp.value = initVal;
+      inp.addEventListener("blur", e => {
+        const raw = e.target.value.replace(/[^0-9.]/g, "");
+        inp.value = raw;
+        onBlurCb(raw);
+        updateDiffBadge();
+      });
+      return inp;
+    };
+
+    const inpMorning = mkWInput("🌅 아침", state.wMorning, v => { state.wMorning = v; });
+    const inpEvening = mkWInput("🌙 저녁", state.wEvening, v => { state.wEvening = v; });
+
+    const wInputs = el("div", {class:"weight-inputs"},
+      el("div", {class:"weight-input-wrap"},
+        el("div", {class:"weight-label"}, "🌅 아침"),
+        el("div", {class:"weight-input-inner"}, inpMorning, el("span",{class:"weight-unit"},"kg"))
+      ),
+      el("div", {class:"weight-input-wrap"},
+        el("div", {class:"weight-label"}, "🌙 저녁"),
+        el("div", {class:"weight-input-inner"}, inpEvening, el("span",{class:"weight-unit"},"kg"))
+      )
+    );
+
+    weightCard.appendChild(wHeaderEl);
+    weightCard.appendChild(wInputs);
+    content.appendChild(weightCard);
+
+    // 초기 diff 표시
+    setTimeout(updateDiffBadge, 0);
+
+    // Note
+    const ta = el("textarea", {class:"note-area", placeholder:"오늘 하루 한 줄 메모 (선택)"});
+    ta.value = state.note;
+    ta.addEventListener("input", e => { state.note = e.target.value; });
+    content.appendChild(ta);
+
+    // Save
+    const saveBtn = el("button", {class:"save-btn "+(allFilled?"ready":"disabled")});
+    saveBtn.textContent = !allFilled
+      ? `${CATS.length - Object.keys(state.scores).length}개 항목 남음`
+      : state.saved ? "✓ 기록 저장됨" : "기록 저장";
+    if (allFilled) {
+      saveBtn.addEventListener("click", () => {
+        const updated = {...state.allData, [curKey]: {
+          scores: state.scores, note: state.note,
+          weightMorning: state.wMorning, weightEvening: state.wEvening,
+          savedAt: new Date().toISOString()
+        }};
+        saveData(updated);
+        state.allData = updated;
+        state.saved = true;
+        // Supabase 자동 백업
+        dbSave(curKey, updated[curKey]);
+        render();
+      });
+    }
+    content.appendChild(saveBtn);
+
+    // Result
+    if (state.saved && delta !== null) {
+      const bg = delta>0?"#22c55e11":delta===0?"#1e2a3a":"#ef444411";
+      const bc = delta>0?"#22c55e33":delta===0?"#1e2a3a":"#ef444433";
+      const tc = delta>0?"#22c55e":delta===0?"#64748b":"#ef4444";
+      const emoji = delta>0?"🔥":delta===0?"➡️":"💪";
+      const msg = delta>0?`전날보다 ${delta}점 성장!`:delta===0?"전날과 동일한 하루":`전날보다 ${Math.abs(delta)}점 아쉬움`;
+      const box = el("div",{class:"result-box",style:{background:bg,border:`1px solid ${bc}`}},
+        el("div",{class:"result-emoji"},emoji),
+        el("div",{class:"result-text",style:{color:tc}},msg)
+      );
+      if (delta<=0) box.appendChild(el("div",{class:"result-sub"},"내일은 더 나은 하루가 될 거야"));
+      content.appendChild(box);
+    }
+
+  } else {
+    // ── HISTORY ──
+    const entries = Object.entries(state.allData)
+      .sort((a,b) => a[0]<b[0]?1:-1)
+      .slice(0,60);
+
+    if (!entries.length) {
+      content.appendChild(el("div",{class:"empty"},
+        el("div",{class:"empty-icon"},"📖"),
+        el("div",{style:{fontSize:"15px"}},"아직 기록이 없어요"),
+        el("div",{style:{fontSize:"13px",marginTop:"4px"}},"오늘 첫 기록을 남겨봐요")
+      ));
+    } else {
+      entries.forEach(([dk, entry], i) => {
+        const prev = entries[i+1];
+        const d = prev ? total(entry.scores) - total(prev[1].scores) : null;
+        const isCurrentDay = dk === curKey;
+
+        const left = el("div",{class:"hist-left"});
+        const dateLabel = el("div",{class:"hist-date"},fmtDate(dk));
+        if (isCurrentDay) {
+          const mark = el("span",{style:{fontSize:"11px",color:"#f59e0b",marginLeft:"6px",fontWeight:"700"}},"● 선택중");
+          dateLabel.appendChild(mark);
+        }
+        left.appendChild(dateLabel);
+
+        if (entry.note) left.appendChild(el("div",{class:"hist-note"},entry.note));
+        if (entry.weightMorning || entry.weightEvening) {
+          const wRow = el("div",{class:"hist-weight"});
+          if (entry.weightMorning) wRow.appendChild(el("span",{},"🌅 "+entry.weightMorning+"kg"));
+          if (entry.weightEvening) wRow.appendChild(el("span",{},"🌙 "+entry.weightEvening+"kg"));
+          left.appendChild(wRow);
+        }
+
+        const cats = el("div",{class:"hist-cats"});
+        CATS.forEach(cat => {
+          const s = entry.scores[cat.id];
+          if (s) {
+            const b = el("span",{class:"hist-cat-badge"},cat.icon+" "+s);
+            b.style.background = COLORS[s-1]+"22";
+            b.style.color = COLORS[s-1];
+            cats.appendChild(b);
+          }
+        });
+        left.appendChild(cats);
+
+        const right = el("div",{class:"hist-right"},el("div",{class:"hist-avg"},avg(entry.scores)));
+        const bd = badge(d);
+        if (bd) right.appendChild(bd);
+
+        const card = el("div",{class:"hist-card"},left,right);
+        if (isCurrentDay) card.style.border = "1px solid #f59e0b44";
+
+        // 클릭하면 그 날짜로 이동
+        card.style.cursor = "pointer";
+        card.addEventListener("click", () => {
+          const today = new Date();
+          const target = new Date(dk);
+          const diff = Math.round((target - today) / (1000*60*60*24));
+          state.dayOffset = diff;
+          loadDayState();
+          state.view = "today";
+          render();
+        });
+
+        content.appendChild(card);
+      });
+    }
+  }
+
+  app.appendChild(content);
+}
+
+render();
+
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(()=>{});
+}
+</script>
+</body>
+</html>
